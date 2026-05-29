@@ -17,7 +17,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Stage 2: Run the application
-FROM temurin:8-jdk-alpine
+FROM eclipse-temurin:8-jdk-alpine
 
 # Set environment variables using the recommended format
 ENV PROJECT_HOME=/opt/app
