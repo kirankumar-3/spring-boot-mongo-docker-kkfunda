@@ -1,0 +1,69 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven3.9.9' // Matches Jenkins global tools name
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'master', 
+                    url: 'https://github.com/kirankumar-3/spring-boot-mongo-docker-kkfunda.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('SonarQube') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                    sh """
+                    mvn sonar:sonar \\
+                        -Dsonar.projectKey=spring-boot-mongo \\
+                        -Dsonar.projectName='Spring Boot Mongo Project'
+                    """
+                }
+            }
+        }
+
+        stage('Build & Tag Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'kirankumar3') {
+                        sh 'docker build -t kirankumar3/mongospring:latest .'
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'kirankumar3') {
+                        sh 'docker push kirankumar3/mongospring:latest'
+                    }
+                }
+            }
+        }
+         stage('Deploy to CD Server') {
+     steps {
+         sshagent(['cd-ssh']) {
+            sh '''
+ssh -o StrictHostKeyChecking=no ubuntu@52.202.176.122 << EOF
+docker pull kirankumar3/mongospring:latest
+docker stop myspringcontainer || true
+docker rm myspringcontainer || true
+docker run -d --name myspringcontainer -p 8081:8080 --restart unless-stopped kirankumar3/mongospring:latest
+EOF
+            '''
+        }
+    }
+}
+
+    }
+}
